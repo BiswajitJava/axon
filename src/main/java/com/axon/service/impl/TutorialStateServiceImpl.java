@@ -9,10 +9,13 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
 public class TutorialStateServiceImpl implements TutorialStateService {
+    // ... (existing fields and constructor are unchanged)
     public record Progress(String currentModuleKey, int currentLessonIndex) {}
     private static final Path PROGRESS_FILE = Path.of(System.getProperty("user.home"), ".axon-progress.json");
     private final ObjectMapper objectMapper;
@@ -25,6 +28,7 @@ public class TutorialStateServiceImpl implements TutorialStateService {
         this.aiTutorService = aiTutorService;
     }
 
+    // ... (loadProgress, startModule, getCurrentLesson, getNextLesson, getStatus, saveProgress are unchanged)
     @PostConstruct
     public void loadProgress() {
         if (Files.exists(PROGRESS_FILE)) {
@@ -72,9 +76,50 @@ public class TutorialStateServiceImpl implements TutorialStateService {
         if (currentProgress == null) {
             return "No tutorial in progress.";
         }
-        return String.format("Currently on lesson %d of the '%s' module.",
-                currentProgress.currentLessonIndex() + 1, currentProgress.currentModuleKey());
+        // Add a check for module completion in the status
+        if (isModuleComplete()) {
+            return String.format("You have completed all %d lessons of the '%s' module!",
+                    currentModule.lessons().size(), currentProgress.currentModuleKey());
+        }
+        return String.format("Currently on lesson %d of %d in the '%s' module.",
+                currentProgress.currentLessonIndex() + 1, currentModule.lessons().size(), currentProgress.currentModuleKey());
     }
+
+    @Override
+    public boolean isModuleComplete() {
+        if (currentModule == null || currentProgress == null) {
+            return false;
+        }
+        return currentProgress.currentLessonIndex() >= currentModule.lessons().size();
+    }
+
+    @Override
+    public void appendMoreLessons() {
+        if (!isModuleComplete()) {
+            throw new IllegalStateException("You must finish the current set of lessons before generating more.");
+        }
+        if (currentModule == null) {
+            throw new IllegalStateException("There is no active module.");
+        }
+
+        // Generate the new lessons, telling the AI what we've already learned
+        GitModule newLessonsModule = aiTutorService.generateMoreLessons(
+                currentProgress.currentModuleKey(),
+                currentModule.lessons()
+        );
+
+        // Combine the old and new lessons
+        List<Lesson> combinedLessons = new ArrayList<>(currentModule.lessons());
+        combinedLessons.addAll(newLessonsModule.lessons());
+
+        // Create a new module object with the combined list
+        this.currentModule = new GitModule(currentModule.moduleName(), combinedLessons);
+
+        System.out.println("Successfully added " + newLessonsModule.lessons().size() + " new lessons to the module.");
+        // The user's progress index is already at the correct position to start the new lessons on the next 'next' command
+        saveProgress();
+    }
+
 
     private void saveProgress() {
         try {

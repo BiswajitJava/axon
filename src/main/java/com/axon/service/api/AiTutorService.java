@@ -1,7 +1,9 @@
 package com.axon.service.api;
 
 import com.axon.model.GitModule;
+import com.axon.model.Lesson;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -15,8 +17,6 @@ public interface AiTutorService {
      *
      * @param moduleKey The unique identifier for the module (e.g., "basics").
      * @return A GitModule object containing the full curriculum.
-     * @throws IllegalArgumentException if the moduleKey is unknown.
-     * @throws RuntimeException if the AI service call or parsing fails.
      */
     GitModule generateModule(String moduleKey);
 
@@ -26,4 +26,21 @@ public interface AiTutorService {
      * @return A Map where the key is the module identifier and the value is the display name.
      */
     Map<String, String> getAvailableModules();
+
+    /**
+     * Generates an answer to a user's question about a command or concept.
+     *
+     * @param question The user's question as a string.
+     * @return A string containing the AI's explanation.
+     */
+    String answerQuestion(String question);
+
+    /**
+     * Generates additional lessons for a topic, avoiding concepts that have already been taught.
+     *
+     * @param moduleKey The key of the current module (e.g., "basics").
+     * @param existingLessons A list of lessons the user has already completed.
+     * @return A new GitModule containing fresh, non-repeating lessons.
+     */
+    GitModule generateMoreLessons(String moduleKey, List<Lesson> existingLessons);
 }

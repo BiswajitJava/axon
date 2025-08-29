@@ -104,7 +104,8 @@ public class LearnCommand {
         if (lessonOpt.isEmpty()) {
             String completionMessage = new AttributedStringBuilder()
                     .append("\nCongratulations, you have completed the module!\n", SUCCESS_STYLE)
-                    .append("Type 'list' to see what you can learn next.", INFO_STYLE)
+                    .append("Type 'more' to generate more lessons for this topic.\n", INFO_STYLE)
+                    .append("Or type 'list' to see what you can learn next.", INFO_STYLE)
                     .toAnsi();
             terminal.writer().println(completionMessage);
         } else {

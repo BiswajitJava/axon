@@ -10,31 +10,22 @@ import java.util.Optional;
  */
 public interface TutorialStateService {
 
-    /**
-     * Starts a new learning module, resetting any previous progress.
-     *
-     * @param moduleKey The key of the module to start.
-     */
+    // ... (existing methods are unchanged)
     void startModule(String moduleKey);
-
-    /**
-     * Retrieves the current lesson based on the user's progress.
-     *
-     * @return An Optional containing the current Lesson, or an empty Optional if the module is complete.
-     */
     Optional<Lesson> getCurrentLesson();
-
-    /**
-     * Advances the user to the next lesson in the current module.
-     *
-     * @return An Optional containing the next Lesson, or an empty Optional if the module is complete.
-     */
     Optional<Lesson> getNextLesson();
+    String getStatus();
 
     /**
-     * Gets a human-readable string describing the user's current progress.
+     * Checks if the user has completed all lessons in the current module.
      *
-     * @return A status string.
+     * @return true if the module is active and all lessons have been viewed, false otherwise.
      */
-    String getStatus();
+    boolean isModuleComplete();
+
+    /**
+     * Generates more lessons for the current module and appends them to the lesson list.
+     * Throws an exception if the module is not yet complete.
+     */
+    void appendMoreLessons();
 }
