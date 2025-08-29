@@ -1,46 +1,27 @@
 package com.axon.service.api;
 
-import com.axon.model.GitModule;
-import com.axon.model.Lesson;
-
-import java.util.List;
-import java.util.Map;
+import com.axon.model.LearningModule;
 
 /**
- * Service interface for interacting with the AI to generate educational content.
- * This defines the contract for what an AI Tutor can do.
+ * A generic service for interacting with the AI model to generate content.
  */
 public interface AiTutorService {
 
     /**
-     * Generates a complete learning module for a given topic key.
+     * Executes a query to the AI to generate a learning module from a specific prompt.
      *
-     * @param moduleKey The unique identifier for the module (e.g., "basics").
-     * @return A GitModule object containing the full curriculum.
+     * @param prompt The complete, formatted prompt to send to the AI.
+     * @param maxTokens The maximum number of tokens for the response.
+     * @return A LearningModule object parsed from the AI's JSON output.
      */
-    GitModule generateModule(String moduleKey);
+    LearningModule generateModuleFromPrompt(String prompt, int maxTokens);
 
     /**
-     * Retrieves a map of all available module keys and their user-friendly names.
+     * Executes a query to the AI to get a text-based answer to a question.
      *
-     * @return A Map where the key is the module identifier and the value is the display name.
+     * @param prompt The complete, formatted prompt containing the user's question.
+     * @param maxTokens The maximum number of tokens for the response.
+     * @return A raw string response from the AI.
      */
-    Map<String, String> getAvailableModules();
-
-    /**
-     * Generates an answer to a user's question about a command or concept.
-     *
-     * @param question The user's question as a string.
-     * @return A string containing the AI's explanation.
-     */
-    String answerQuestion(String question);
-
-    /**
-     * Generates additional lessons for a topic, avoiding concepts that have already been taught.
-     *
-     * @param moduleKey The key of the current module (e.g., "basics").
-     * @param existingLessons A list of lessons the user has already completed.
-     * @return A new GitModule containing fresh, non-repeating lessons.
-     */
-    GitModule generateMoreLessons(String moduleKey, List<Lesson> existingLessons);
+    String answerQuestionFromPrompt(String prompt, int maxTokens);
 }
