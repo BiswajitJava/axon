@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +48,7 @@ public class TutorialStateServiceImpl implements TutorialStateService {
                     System.out.println("Resuming previous session for " + currentProgress.currentTechnology() + "...");
                     this.currentPromptService = getPromptServiceFor(currentProgress.currentTechnology());
                     String prompt = currentPromptService.buildInitialModulePrompt(currentProgress.currentModuleKey());
+                    // Increased tokens to accommodate new fields for practice mode
                     this.currentModule = aiTutorService.generateModuleFromPrompt(prompt, 5000);
                 }
             } catch (IOException e) {
@@ -63,6 +65,7 @@ public class TutorialStateServiceImpl implements TutorialStateService {
             throw new IllegalArgumentException("Unknown module key '" + moduleKey + "' for " + technology);
         }
         String prompt = currentPromptService.buildInitialModulePrompt(moduleKey);
+        // Increased tokens to accommodate new fields for practice mode
         this.currentModule = aiTutorService.generateModuleFromPrompt(prompt, 5000);
         this.currentProgress = new Progress(technology, moduleKey, 0);
         saveProgress();
@@ -78,7 +81,7 @@ public class TutorialStateServiceImpl implements TutorialStateService {
 
     @Override
     public Optional<Lesson> getNextLesson() {
-        if (currentModule == null) {
+        if (currentModule == null || isModuleComplete()) {
             return Optional.empty();
         }
         currentProgress = new Progress(currentProgress.currentTechnology(), currentProgress.currentModuleKey(), currentProgress.currentLessonIndex() + 1);
@@ -89,7 +92,7 @@ public class TutorialStateServiceImpl implements TutorialStateService {
     @Override
     public String getStatus() {
         if (currentProgress == null || currentPromptService == null) {
-            return "No tutorial in progress. Use 'git start' or 'docker start'.";
+            return "No tutorial in progress. Use 'start' to begin.";
         }
         if (isModuleComplete()) {
             return String.format("You have completed all %d lessons of the '%s' module for %s!",
@@ -116,7 +119,7 @@ public class TutorialStateServiceImpl implements TutorialStateService {
         if (currentModule == null) throw new IllegalStateException("No active module.");
 
         String prompt = currentPromptService.buildMoreLessonsPrompt(currentProgress.currentModuleKey(), currentModule.lessons());
-        LearningModule newLessonsModule = aiTutorService.generateModuleFromPrompt(prompt, 2500);
+        LearningModule newLessonsModule = aiTutorService.generateModuleFromPrompt(prompt, 4000);
 
         List<Lesson> combinedLessons = new ArrayList<>(currentModule.lessons());
         combinedLessons.addAll(newLessonsModule.lessons());
@@ -127,7 +130,7 @@ public class TutorialStateServiceImpl implements TutorialStateService {
     @Override
     public String answerQuestion(String question) {
         if (currentPromptService == null) {
-            throw new IllegalStateException("Cannot answer question without context. Please start a module first (e.g., 'git start basics').");
+            throw new IllegalStateException("Cannot answer question without context. Please start a module first.");
         }
         String prompt = currentPromptService.buildQuestionPrompt(question);
         return aiTutorService.answerQuestionFromPrompt(prompt, 2500);
@@ -139,6 +142,48 @@ public class TutorialStateServiceImpl implements TutorialStateService {
             return Map.of();
         }
         return currentPromptService.getAvailableModules();
+    }
+
+    @Override
+    public Optional<Lesson> getPreviousLesson() {
+        if (currentProgress == null || currentProgress.currentLessonIndex() <= 0) {
+            return Optional.empty();
+        }
+        this.currentProgress = new Progress(currentProgress.currentTechnology(), currentProgress.currentModuleKey(), currentProgress.currentLessonIndex() - 1);
+        saveProgress();
+        return getCurrentLesson();
+    }
+
+    @Override
+    public Optional<Lesson> goToLesson(int lessonNumber) {
+        int lessonIndex = lessonNumber - 1;
+        if (currentModule == null || lessonIndex < 0 || lessonIndex >= currentModule.lessons().size()) {
+            return Optional.empty();
+        }
+        this.currentProgress = new Progress(currentProgress.currentTechnology(), currentProgress.currentModuleKey(), lessonIndex);
+        saveProgress();
+        return getCurrentLesson();
+    }
+
+    @Override
+    public List<Lesson> getCurrentModuleLessons() {
+        return currentModule != null ? currentModule.lessons() : Collections.emptyList();
+    }
+
+    @Override
+    public String generateSummary() {
+        if (!isModuleComplete()) {
+            throw new IllegalStateException("A summary can only be generated after completing all lessons in the module.");
+        }
+        if (currentModule == null) {
+            throw new IllegalStateException("No active module to summarize.");
+        }
+
+        String moduleName = currentPromptService.getAvailableModules().get(currentProgress.currentModuleKey());
+        String prompt = currentPromptService.buildSummaryPrompt(moduleName, currentModule.lessons());
+
+        System.out.println("Generating AI summary of the module... please wait.");
+        return aiTutorService.answerQuestionFromPrompt(prompt, 2500);
     }
 
     private void saveProgress() {

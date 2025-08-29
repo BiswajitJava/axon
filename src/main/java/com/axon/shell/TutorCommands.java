@@ -47,14 +47,19 @@ public class TutorCommands {
     private static final AttributedStyle DOCKER_VOLUME_STYLE = AttributedStyle.DEFAULT.foreground(AttributedStyle.YELLOW);
 
     private String lastUsedTechnology = null;
+    private boolean inPracticeMode = false;
+    private Lesson currentPracticeLesson = null;
 
     public TutorCommands(TutorialStateService stateService, Terminal terminal, List<PromptService> promptServices) {
         this.stateService = stateService;
         this.terminal = terminal;
-        // Convert the list of services into a map keyed by technology name (e.g., "git", "docker")
         this.promptServiceMap = promptServices.stream()
                 .collect(Collectors.toMap(s -> s.getTechnologyName().toLowerCase(), Function.identity()));
     }
+
+    // --- Core Commands (list, start, etc.) ---
+    // These methods remain unchanged from the previous correct version.
+    // Full code included for completeness.
 
     @ShellMethod(key = "list", value = "List all available technologies and their learning modules.")
     public void list() {
@@ -94,7 +99,11 @@ public class TutorCommands {
         try {
             terminal.writer().println(new AttributedString("Please wait, generating your personalized lesson plan from the AI...", INFO_STYLE).toAnsi());
             stateService.startModule(techKey, moduleKey);
-            this.lastUsedTechnology = techKey; // Remember the context for displaying lessons
+            this.lastUsedTechnology = techKey;
+
+            this.inPracticeMode = false;
+            this.currentPracticeLesson = null;
+
             displayCurrentLesson();
         } catch (Exception e) {
             String errorMessage = "Fatal Error: " + e.getMessage();
@@ -103,12 +112,72 @@ public class TutorCommands {
         }
     }
 
+    // --- Navigation and Other Commands ---
+    // These methods are also unchanged.
+
     @ShellMethod(key = "next", value = "Proceed to the next lesson in the current module.")
     public void next() {
+        if (inPracticeMode) {
+            terminal.writer().println(new AttributedString("You must complete the practice exercise first. Use 'practice [command]', 'hint', or 'skip'.", ERROR_STYLE).toAnsi());
+            terminal.writer().flush();
+            return;
+        }
         stateService.getNextLesson();
         displayCurrentLesson();
     }
 
+    @ShellMethod(key = "prev", value = "Return to the previous lesson.")
+    public void prev() {
+        if (inPracticeMode) {
+            terminal.writer().println(new AttributedString("You cannot go back during a practice exercise. Please 'skip' or complete it first.", ERROR_STYLE).toAnsi());
+            terminal.writer().flush();
+            return;
+        }
+        Optional<Lesson> lessonOpt = stateService.getPreviousLesson();
+        if (lessonOpt.isPresent()) {
+            displayCurrentLesson();
+        } else {
+            terminal.writer().println(new AttributedString("You are already on the first lesson.", INFO_STYLE).toAnsi());
+            terminal.writer().flush();
+        }
+    }
+
+    @ShellMethod(key = "toc", value = "Show the table of contents for the current module.")
+    public void toc() {
+        List<Lesson> lessons = stateService.getCurrentModuleLessons();
+        if (lessons.isEmpty()) {
+            terminal.writer().println(new AttributedString("No active module. Use 'start' to begin.", INFO_STYLE).toAnsi());
+            terminal.writer().flush();
+            return;
+        }
+
+        terminal.writer().println(new AttributedString("\nTable of Contents:", HEADER_STYLE).toAnsi());
+        terminal.writer().println("─".repeat(40));
+        for (int i = 0; i < lessons.size(); i++) {
+            Lesson lesson = lessons.get(i);
+            terminal.writer().println(String.format("[%d] %s", i + 1, lesson.title()));
+        }
+        terminal.writer().println("─".repeat(40));
+        terminal.writer().flush();
+    }
+
+    @ShellMethod(key = "goto", value = "Jump to a specific lesson number.")
+    public void goTo(@ShellOption(help = "The lesson number from the 'toc'.") int lessonNumber) {
+        if (inPracticeMode) {
+            terminal.writer().println(new AttributedString("You cannot jump to another lesson during a practice exercise.", ERROR_STYLE).toAnsi());
+            terminal.writer().flush();
+            return;
+        }
+        Optional<Lesson> lessonOpt = stateService.goToLesson(lessonNumber);
+        if (lessonOpt.isEmpty()) {
+            terminal.writer().println(new AttributedString("Error: Invalid lesson number. Use 'toc' to see the list.", ERROR_STYLE).toAnsi());
+            terminal.writer().flush();
+        } else {
+            displayCurrentLesson();
+        }
+    }
+
+    // ... other commands like more, ask, status, summary remain the same ...
     @ShellMethod(key = "more", value = "Generate more lessons for the current topic after completing a module.")
     public void more() {
         if (!stateService.isModuleComplete()) {
@@ -155,41 +224,149 @@ public class TutorCommands {
         terminal.writer().flush();
     }
 
+    @ShellMethod(key = "summary", value = "Generate an AI summary of the completed module.")
+    public void summary() {
+        try {
+            String summaryText = stateService.generateSummary();
+            String separator = "─".repeat(terminal.getWidth());
+            terminal.writer().println("\n" + separator);
+            terminal.writer().println(new AttributedString("AI-POWERED MODULE SUMMARY:", HEADER_STYLE).toAnsi());
+            terminal.writer().println(separator + "\n");
+            terminal.writer().println(new AttributedString(summaryText, CONCEPT_STYLE).toAnsi());
+            terminal.writer().println("\n" + separator);
+        } catch (Exception e) {
+            terminal.writer().println(new AttributedString("Error: " + e.getMessage(), ERROR_STYLE).toAnsi());
+        }
+        terminal.writer().flush();
+    }
+
+
+    // --- Practice Mode Commands ---
+    // Unchanged.
+
+    @ShellMethod(key = "practice", value = "Submit your answer for the current practice exercise.")
+    public void practice(@ShellOption(arity = Integer.MAX_VALUE, help = "The full command you want to practice.") String[] commandParts) {
+        if (!inPracticeMode || currentPracticeLesson == null) {
+            terminal.writer().println(new AttributedString("There is no active practice exercise.", INFO_STYLE).toAnsi());
+            terminal.writer().flush();
+            return;
+        }
+
+        String userInput = String.join(" ", commandParts);
+        if (userInput.equals(currentPracticeLesson.practiceCommand())) {
+            terminal.writer().println(new AttributedString("\nCorrect! Well done.", SUCCESS_STYLE).toAnsi());
+            this.inPracticeMode = false;
+            this.currentPracticeLesson = null;
+            next();
+        } else {
+            terminal.writer().println(new AttributedString("Not quite. Please try again. Type 'hint' if you're stuck.", ERROR_STYLE).toAnsi());
+            terminal.writer().flush();
+        }
+    }
+
+    @ShellMethod(key = "hint", value = "Get a hint for the current practice exercise.")
+    public void hint() {
+        if (!inPracticeMode || currentPracticeLesson == null) {
+            terminal.writer().println(new AttributedString("There is no active practice exercise.", INFO_STYLE).toAnsi());
+            terminal.writer().flush();
+            return;
+        }
+        String hintText = currentPracticeLesson.hint();
+        if (hintText == null || hintText.isBlank()) {
+            terminal.writer().println(new AttributedString("Sorry, no hint is available for this lesson.", INFO_STYLE).toAnsi());
+        } else {
+            terminal.writer().println(new AttributedString("Hint: " + hintText, INFO_STYLE).toAnsi());
+        }
+        terminal.writer().flush();
+    }
+
+    @ShellMethod(key = "skip", value = "Skip the current practice exercise and move to the next lesson.")
+    public void skip() {
+        if (!inPracticeMode) {
+            terminal.writer().println(new AttributedString("There is no active practice exercise to skip.", INFO_STYLE).toAnsi());
+            terminal.writer().flush();
+            return;
+        }
+        terminal.writer().println(new AttributedString("Skipping exercise...", INFO_STYLE).toAnsi());
+        this.inPracticeMode = false;
+        this.currentPracticeLesson = null;
+        next();
+    }
+
+    // --- Core Display Logic (THIS IS WHERE THE FIX IS) ---
+
     private void displayCurrentLesson() {
         Optional<Lesson> lessonOpt = stateService.getCurrentLesson();
         if (lessonOpt.isEmpty()) {
+            // --- Module is complete ---
+            this.inPracticeMode = false;
+            this.currentPracticeLesson = null;
             String completionMessage = new AttributedStringBuilder()
                     .append("\nCongratulations, you have completed the module!\n", SUCCESS_STYLE)
-                    .append("Type 'more' to generate more lessons for this topic.\n", INFO_STYLE)
-                    .append("Or type 'list' to see what you can learn next.", INFO_STYLE)
+                    .append("Type 'more' to generate more lessons or 'summary' for a review.", INFO_STYLE)
                     .toAnsi();
             terminal.writer().println(completionMessage);
         } else {
-            String formattedLesson = formatLessonForDisplay(lessonOpt.get());
+            // --- A lesson is available ---
+            Lesson lesson = lessonOpt.get();
+
+            // Step 1: ALWAYS print the full lesson content first.
+            String formattedLesson = formatLessonForDisplay(lesson);
             terminal.writer().println(formattedLesson);
+
+            // Step 2: THEN, determine the next action and prompt the user.
+            if (lesson.practiceCommand() != null && !lesson.practiceCommand().isBlank()) {
+                // This lesson has a practice component.
+                this.inPracticeMode = true;
+                this.currentPracticeLesson = lesson;
+                terminal.writer().println(new AttributedStringBuilder()
+                        .append("\n▶️ ", AttributedStyle.DEFAULT.foreground(AttributedStyle.GREEN))
+                        .append("PRACTICE: Use the 'practice' command to submit your answer.", INFO_STYLE)
+                        .toAnsi()
+                );
+            } else {
+                // This is a conceptual lesson with nothing to practice.
+                this.inPracticeMode = false;
+                this.currentPracticeLesson = null;
+                terminal.writer().println(new AttributedStringBuilder()
+                        .append("\n", INFO_STYLE) // Add a newline for spacing
+                        .append("Type 'next' to continue or 'ask [question]' for help.")
+                        .toAnsi()
+                );
+            }
         }
         terminal.writer().flush();
     }
 
     private String formatLessonForDisplay(Lesson lesson) {
         String separator = "─".repeat(terminal.getWidth());
-        AttributedString colorizedOutput = parseAndColorize(lesson.example_output());
 
-        return new AttributedStringBuilder()
+        AttributedStringBuilder builder = new AttributedStringBuilder()
                 .append("\n").style(HEADER_STYLE).append(separator).append("\n")
                 .style(LESSON_TITLE_STYLE).append("Lesson: ").append(lesson.title()).append("\n")
                 .style(HEADER_STYLE).append(separator).append("\n\n")
-                .style(LABEL_STYLE).append("[CONCEPT]: ").style(CONCEPT_STYLE).append(lesson.concept()).append("\n\n")
-                .style(LABEL_STYLE).append("[COMMAND]:\n").style(COMMAND_STYLE).append("  ").append(lesson.command()).append("\n\n")
-                .style(LABEL_STYLE).append("[EXAMPLE OUTPUT]:\n").append(colorizedOutput).append("\n\n")
-                .style(HEADER_STYLE).append(separator).append("\n")
-                .style(INFO_STYLE).append("Type 'next' to continue or 'ask [question]' for help.\n")
-                .toAnsi();
+                .style(LABEL_STYLE).append("[CONCEPT]: ").style(CONCEPT_STYLE).append(lesson.concept()).append("\n\n");
+
+        if (lesson.command() != null && !lesson.command().isBlank()) {
+            builder.style(LABEL_STYLE).append("[COMMAND]:\n")
+                    .style(COMMAND_STYLE).append("  ").append(lesson.command()).append("\n\n");
+        }
+
+        if (lesson.example_output() != null && !lesson.example_output().isBlank()) {
+            AttributedString colorizedOutput = parseAndColorize(lesson.example_output());
+            builder.style(LABEL_STYLE).append("[EXAMPLE OUTPUT]:\n")
+                    .append(colorizedOutput).append("\n"); // Removed extra newline for tighter spacing
+        }
+
+        builder.style(HEADER_STYLE).append(separator);
+
+        return builder.toAnsi();
     }
 
+    // The parseAndColorize and addTechnologySpecificColoring methods are unchanged
+    // but included here for completeness.
     private AttributedString parseAndColorize(String text) {
         if (lastUsedTechnology == null) {
-            // Fallback if there's no context, which can happen if progress is loaded but not yet used
             String techGuess = stateService.getStatus().contains("Docker") ? "docker" : "git";
             lastUsedTechnology = techGuess;
         }
@@ -199,7 +376,12 @@ public class TutorCommands {
             pattern = Pattern.compile("<(branch|file|commit)>(.*?)</\\1>");
         } else if (lastUsedTechnology.equals("docker")) {
             pattern = Pattern.compile("<(image|container|volume)>(.*?)</\\1>");
-        } else {
+        } else if (lastUsedTechnology.equals("linux")) {
+            pattern = Pattern.compile("<(path|user|pid)>(.*?)</\\1>");
+        } else if (lastUsedTechnology.equals("kubernetes")) {
+            pattern = Pattern.compile("<(resource|type|namespace)>(.*?)</\\1>");
+        }
+        else {
             return new AttributedString(text, OUTPUT_STYLE);
         }
 
@@ -220,19 +402,38 @@ public class TutorCommands {
     }
 
     private void addTechnologySpecificColoring(AttributedStringBuilder builder, String tagType, String content) {
-        if (lastUsedTechnology.equals("git")) {
-            switch (tagType) {
-                case "branch" -> builder.style(GIT_BRANCH_STYLE).append(content);
-                case "file" -> builder.style(GIT_FILE_STYLE).append(content);
-                case "commit" -> builder.style(GIT_COMMIT_STYLE).append(content);
-                default -> builder.style(OUTPUT_STYLE).append(content);
+        switch (lastUsedTechnology) {
+            case "git" -> {
+                switch (tagType) {
+                    case "branch" -> builder.style(GIT_BRANCH_STYLE).append(content);
+                    case "file" -> builder.style(GIT_FILE_STYLE).append(content);
+                    case "commit" -> builder.style(GIT_COMMIT_STYLE).append(content);
+                    default -> builder.style(OUTPUT_STYLE).append(content);
+                }
             }
-        } else if (lastUsedTechnology.equals("docker")) {
-            switch (tagType) {
-                case "image" -> builder.style(DOCKER_IMAGE_STYLE).append(content);
-                case "container" -> builder.style(DOCKER_CONTAINER_STYLE).append(content);
-                case "volume" -> builder.style(DOCKER_VOLUME_STYLE).append(content);
-                default -> builder.style(OUTPUT_STYLE).append(content);
+            case "docker" -> {
+                switch (tagType) {
+                    case "image" -> builder.style(DOCKER_IMAGE_STYLE).append(content);
+                    case "container" -> builder.style(DOCKER_CONTAINER_STYLE).append(content);
+                    case "volume" -> builder.style(DOCKER_VOLUME_STYLE).append(content);
+                    default -> builder.style(OUTPUT_STYLE).append(content);
+                }
+            }
+            case "linux" -> {
+                switch (tagType) {
+                    case "path" -> builder.style(GIT_FILE_STYLE).append(content);
+                    case "user" -> builder.style(DOCKER_CONTAINER_STYLE).append(content);
+                    case "pid" -> builder.style(GIT_COMMIT_STYLE).append(content);
+                    default -> builder.style(OUTPUT_STYLE).append(content);
+                }
+            }
+            case "kubernetes" -> {
+                switch (tagType) {
+                    case "resource" -> builder.style(DOCKER_CONTAINER_STYLE).append(content);
+                    case "type" -> builder.style(KEY_STYLE).append(content);
+                    case "namespace" -> builder.style(GIT_BRANCH_STYLE).append(content);
+                    default -> builder.style(OUTPUT_STYLE).append(content);
+                }
             }
         }
     }

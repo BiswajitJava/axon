@@ -39,11 +39,26 @@ public class GitPromptServiceImpl implements PromptService {
         You are a curriculum generation bot. Your only function is to output a single, valid JSON object.
         Generate a curriculum for a developer learning about '%s'.
         The "lessons" array must contain exactly 30 lesson objects.
-        Each lesson object MUST contain "title", "concept", "command", and "example_output".
+        Each lesson object MUST contain "title", "concept", "command", "example_output", "practiceCommand", and "hint".
+        
+        - "practiceCommand": This MUST be the *exact*, simple command the user should type to practice. For conceptual lessons, this can be an empty string "".
+        - "hint": A short, helpful tip related to the command's syntax. For conceptual lessons, this can be an empty string "".
+        
         Inside "example_output", you MUST use these XML tags for colorization:
         - Branch names: <branch>...</branch>
         - Filenames/paths: <file>...</file>
         - Commit hashes: <commit>...</commit>
+        
+        EXAMPLE LESSON OBJECT:
+        {
+          "title": "Adding a File",
+          "concept": "The 'git add' command stages changes for the next commit.",
+          "command": "git add <filename>",
+          "example_output": "...",
+          "practiceCommand": "git add README.md",
+          "hint": "Don't forget to specify which file you want to add after the command."
+        }
+        
         Output only the raw JSON.
         """;
         return formatPrompt(String.format(prompt, topic));
@@ -62,8 +77,12 @@ public class GitPromptServiceImpl implements PromptService {
         Generate a new curriculum with 15 more lessons for a developer learning about '%s'.
         CRITICAL: The user has already learned these commands: %s. You MUST NOT create lessons for these commands.
         Introduce NEW, more advanced, or related commands and concepts.
-        The "lessons" array must contain exactly 15 lesson objects.
-        Each lesson object must contain "title", "concept", "command", and "example_output" with the required <branch>, <file>, <commit> tags.
+        Each lesson object must contain "title", "concept", "command", "example_output", "practiceCommand", and "hint".
+        
+        - "practiceCommand": The exact command to practice, or "" if not applicable.
+        - "hint": A helpful tip, or "" if not applicable.
+        
+        Use the required <branch>, <file>, <commit> tags in the example_output.
         Output only the raw JSON.
         """;
         return formatPrompt(String.format(prompt, topic, completedCommands));
@@ -77,6 +96,22 @@ public class GitPromptServiceImpl implements PromptService {
         Question: "%s"
         """;
         return formatPrompt(String.format(prompt, question), false);
+    }
+
+    @Override
+    public String buildSummaryPrompt(String moduleName, List<Lesson> lessons) {
+        String lessonTitles = lessons.stream()
+                .map(Lesson::title)
+                .collect(Collectors.joining(", "));
+
+        String prompt = String.format("""
+        You are a helpful assistant who creates concise study guides.
+        Generate a markdown-formatted summary for a learning module named "%s".
+        The module covered these topics: %s.
+        Organize the summary with clear headings for the key concepts. Do not summarize each lesson individually; synthesize the core ideas.
+        """, moduleName, lessonTitles);
+
+        return formatPrompt(prompt, false);
     }
 
     private String formatPrompt(String userContent) {
