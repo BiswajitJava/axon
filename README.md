@@ -92,16 +92,42 @@ You should now see the `axon >` prompt, ready for your commands!
 
 ## 💻 Usage
 
-Once inside the Axon shell, the commands are simple:
+Once inside the Axon shell (`axon >`), you can use the following commands to guide your learning.
 
-| Command           | Description                                                 |
-| ----------------- | ----------------------------------------------------------- |
-| `list`            | Shows all available learning modules.                       |
-| `start <module>`  | Starts a new lesson plan for the specified module (e.g., `start basics`). |
-| `next`            | Proceeds to the next lesson in the current module.          |
-| `more`            | Generates the next batch of lessons when you finish a set.  |
-| `status`          | Shows your current progress.                                |
-| `exit`            | Exits the Axon CLI.                                         |
+### Getting Started & Core Navigation
+
+These are the primary commands you'll use to move through the lessons.
+
+| Command | Example | Description |
+| :--- | :--- | :--- |
+| `list` | `list` | Shows all available technologies and their learning modules. |
+| `start` | `start git basics` | Starts a new lesson plan for a specific technology and module. |
+| `next` | `next` | Proceeds to the next lesson in the current module. |
+| `prev` | `prev` | Returns to the previous lesson. |
+| `toc` | `toc` | Displays the Table of Contents for the current module. |
+| `goto` | `goto 5` | Jumps to a specific lesson number from the `toc`. |
+
+### Interactive Practice
+
+When a lesson has a ▶️ **PRACTICE** prompt, you can use these commands.
+
+| Command | Example | Description |
+| :--- | :--- | :--- |
+| `p` / `practice` | `p 'git commit -m "A message"'` | Submits your answer for the exercise. **Note:** Always wrap your command in single quotes `'...'` if it contains spaces or double quotes. |
+| `hint` | `hint` | Gets a helpful hint for the current practice exercise. |
+| `skip` | `skip` | Skips the current practice exercise and moves to the next lesson (same as `next`). |
+
+### Utility & AI Commands
+
+These commands help you manage your progress and get help from the AI.
+
+| Command | Example | Description |
+| :--- | :--- | :--- |
+| `ask` | `ask what is a container` | Asks the AI tutor a question about the current topic. |
+| `more` | `more` | Generates a new batch of lessons after you complete a module. |
+| `status` | `status` | Shows your current progress (technology, module, and lesson number). |
+| `summary` | `summary` | Generates an AI-powered summary of a module you have completed. |
+| `exit` | `exit` | Exits the Axon CLI. |
 
 ## 🛠️ Technology Stack
 
