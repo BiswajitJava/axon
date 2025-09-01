@@ -33,9 +33,9 @@ Axon transforms learning from a passive reading exercise into an **active, guide
 The beauty of Axon is its flexibility. The following modules are currently supported or planned:
 
 *   [x] **Git**: Master version control from basics to advanced branching and history manipulation.
-*   [ ] **Docker**: Learn how to build, manage, and run containers.
-*   [ ] **Kubernetes (`kubectl`)**: Understand pods, deployments, and services.
-*   [ ] **Linux Commands (`grep`, `awk`, `sed`)**: Become a command-line power user.
+*   [x] **Docker**: Learn how to build, manage, and run containers.
+*   [x] **Kubernetes (`kubectl`)**: Understand pods, deployments, and services.
+*   [x] **Linux Commands (`grep`, `awk`, `sed`)**: Become a command-line power user.
 *   [ ] ...and more! Contributions are welcome.
 
 ## 🚀 Getting Started
