@@ -8,7 +8,7 @@ import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
@@ -24,8 +24,7 @@ import java.util.stream.Collectors;
 @ShellComponent
 public class TutorCommands {
 
-    @Value("${spring.application.version}")
-    private String appVersion;
+    private final BuildProperties buildProperties;
 
     private final TutorialStateService stateService;
     private final Terminal terminal;
@@ -54,7 +53,8 @@ public class TutorCommands {
     private boolean inPracticeMode = false;
     private Lesson currentPracticeLesson = null;
 
-    public TutorCommands(TutorialStateService stateService, Terminal terminal, List<PromptService> promptServices) {
+    public TutorCommands(BuildProperties buildProperties, TutorialStateService stateService, Terminal terminal, List<PromptService> promptServices) {
+        this.buildProperties = buildProperties;
         this.stateService = stateService;
         this.terminal = terminal;
         this.promptServiceMap = promptServices.stream()
@@ -328,21 +328,17 @@ public class TutorCommands {
 
     private AttributedString parseAndColorize(String text) {
         if (lastUsedTechnology == null) {
-            String techGuess = stateService.getStatus().contains("Docker") ? "docker" : "git";
-            lastUsedTechnology = techGuess;
+            lastUsedTechnology = stateService.getStatus().contains("Docker") ? "docker" : "git";
         }
         Pattern pattern;
-        if (lastUsedTechnology.equals("git")) {
-            pattern = Pattern.compile("<(branch|file|commit)>(.*?)</\\1>");
-        } else if (lastUsedTechnology.equals("docker")) {
-            pattern = Pattern.compile("<(image|container|volume)>(.*?)</\\1>");
-        } else if (lastUsedTechnology.equals("linux")) {
-            pattern = Pattern.compile("<(path|user|pid)>(.*?)</\\1>");
-        } else if (lastUsedTechnology.equals("kubernetes")) {
-            pattern = Pattern.compile("<(resource|type|namespace)>(.*?)</\\1>");
-        }
-        else {
-            return new AttributedString(text, OUTPUT_STYLE);
+        switch (lastUsedTechnology) {
+            case "git" -> pattern = Pattern.compile("<(branch|file|commit)>(.*?)</\\1>");
+            case "docker" -> pattern = Pattern.compile("<(image|container|volume)>(.*?)</\\1>");
+            case "linux" -> pattern = Pattern.compile("<(path|user|pid)>(.*?)</\\1>");
+            case "kubernetes" -> pattern = Pattern.compile("<(resource|type|namespace)>(.*?)</\\1>");
+            default -> {
+                return new AttributedString(text, OUTPUT_STYLE);
+            }
         }
 
         AttributedStringBuilder builder = new AttributedStringBuilder();
@@ -400,7 +396,7 @@ public class TutorCommands {
 
     @ShellMethod(key = "version", value = "Display the application version.")
     public void version() {
-        terminal.writer().println("axon-cli version " + appVersion);
+        terminal.writer().println("axon-cli version " + buildProperties.getVersion()); // <-- CHANGE THIS LINE
         terminal.writer().flush();
     }
 }
