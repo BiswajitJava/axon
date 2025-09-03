@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>axon-cli</id>
+    <version>0.0.1</version> <!-- <--- UPDATE THIS -->
+    <title>Axon CLI</title>
+    <authors>Your Name</authors> <!-- <--- UPDATE THIS -->
+    <projectUrl>https://github.com/your-username/axon-cli</projectUrl> <!-- <--- UPDATE THIS -->
+    <description>AI-powered terminal tutor for developer tools.</description>
+    <tags>ai cli tutor git docker kubernetes linux</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

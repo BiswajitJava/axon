@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.axon</groupId>
 	<artifactId>axon-cli</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<name>Axon</name>
 	<description>AI-powered terminal tutor for developer tools</description>
 	<url/>

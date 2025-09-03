@@ -8,6 +8,7 @@ import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
@@ -22,6 +23,9 @@ import java.util.stream.Collectors;
 
 @ShellComponent
 public class TutorCommands {
+
+    @Value("${spring.application.version}")
+    private String appVersion;
 
     private final TutorialStateService stateService;
     private final Terminal terminal;
@@ -392,5 +396,11 @@ public class TutorCommands {
                 }
             }
         }
+    }
+
+    @ShellMethod(key = "version", value = "Display the application version.")
+    public void version() {
+        terminal.writer().println("axon-cli version " + appVersion);
+        terminal.writer().flush();
     }
 }

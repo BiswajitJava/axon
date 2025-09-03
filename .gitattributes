@@ -1,2 +1,23 @@
-/mvnw text eol=lf
-*.cmd text eol=crlf
+# .gitattributes
+
+# Default behavior: Let Git decide based on the content.
+* text=auto
+
+# Enforce Unix-style (LF) line endings for scripts and config files.
+# This is CRITICAL for shell scripts to work correctly on Linux/macOS.
+*.sh      eol=lf
+*.bash    eol=lf
+.gitignore eol=lf
+.gitattributes eol=lf
+
+# Enforce Windows-style (CRLF) line endings for Windows-specific files.
+*.bat     eol=crlf
+*.cmd     eol=crlf
+*.ps1     eol=crlf
+
+# Mark common binary files as such to prevent Git from touching them.
+*.jar     binary
+*.png     binary
+*.jpg     binary
+*.gif     binary
+*.zip     binary

@@ -1,0 +1,81 @@
+name: Create Release and Build Binaries
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+' # Trigger on tags like v0.1.0
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: AButler/upload-release-assets@v3.0
+        with:
+          files: 'target/axon-cli-*;target/axon-cli*.exe'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-tag: ${{ github.ref_name }}
+
+  build-native:
+    name: Build Native Executable on ${{ matrix.os }}
+    needs: build-and-release
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build with Maven
+        run: mvn -B -Pnative native:compile
+        env:
+          FW_API_KEY: "dummy-key" # Set a dummy key for the build process
+
+      - name: Rename Binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          OS_NAME=$(echo ${{ runner.os }} | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+          mv target/axon-cli target/axon-cli-${OS_NAME}-${ARCH}
+        shell: bash
+
+      - name: Rename Binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $osName = "windows"
+          $arch = "amd64" # GitHub runners for Windows are amd64
+          Move-Item -Path target/axon-cli.exe -Destination target/axon-cli-${osName}-${arch}.exe
+        shell: pwsh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: axon-cli-${{ runner.os }}
+          path: |
+            target/axon-cli-*
+            !target/*.jar
+            !target/*.zip
+            !target/*.tar
