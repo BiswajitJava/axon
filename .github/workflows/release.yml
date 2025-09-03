@@ -26,27 +26,30 @@ jobs:
 
       - name: Build with Maven
         run: mvn -B -Pnative -DskipTests native:compile
-        env:
-          FW_API_KEY: "dummy-key" # Set a dummy key for the build process
 
       - name: Prepare Binary for Upload
         shell: bash
         run: |
-          OS_NAME=$(echo ${{ runner.os }} | cut -d'-' -f1) # Extracts 'ubuntu', 'macos', or 'windows'
+          OS_NAME=$(echo ${{ runner.os }} | cut -d'-' -f1)
           if [[ "${{ runner.os }}" == "windows-latest" ]]; then
-            ARTIFACT_NAME="axon-cli-windows-amd64.exe"
-            mv target/axon-cli.exe "target/${ARTIFACT_NAME}"
+            ARTIFACT_FILENAME="axon-cli-windows-amd64.exe"
+            mv target/axon-cli.exe "target/${ARTIFACT_FILENAME}"
           else
             ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
-            ARTIFACT_NAME="axon-cli-${OS_NAME}-${ARCH}"
-            mv target/axon-cli "target/${ARTIFACT_NAME}"
+            ARTIFACT_FILENAME="axon-cli-${OS_NAME}-${ARCH}"
+            mv target/axon-cli "target/${ARTIFACT_FILENAME}"
           fi
-          echo "ARTIFACT_PATH=target/${ARTIFACT_NAME}" >> $GITHUB_ENV
+          # Set the simple filename as the artifact NAME
+          echo "ARTIFACT_NAME=${ARTIFACT_FILENAME}" >> $GITHUB_ENV
+          # Set the full path for the artifact PATH
+          echo "ARTIFACT_PATH=target/${ARTIFACT_FILENAME}" >> $GITHUB_ENV
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_PATH }}
+          # Use the simple filename for the 'name'
+          name: ${{ env.ARTIFACT_NAME }}
+          # Use the full path for the 'path'
           path: ${{ env.ARTIFACT_PATH }}
 
   create-release:
